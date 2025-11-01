@@ -2,15 +2,12 @@ library(viridis)
 library(paletteer)
 library(magicaxis)
 library(orthopolynom)
-library(doParallel)
-library(parallel)
 source('mcmc_func.R')
 source('periodograms.R')
 source('periodoframe.R')
 source('general_function.R')
 source('sofa_function.R')
 source('timing_function.R')
-source('rv_function.R')
 source('constants.R')
 source('astrometry_function.R')
 time.start <- proc.time()
@@ -18,12 +15,12 @@ args <- commandArgs(trailingOnly=TRUE)
 if(length(args)>0){
     target <- as.character(args[1])
     Niter0 <- as.integer(args[2])
-    dtype <- as.character(args[3])
+    Esd <- as.numeric(args[3])
     Ncores <- as.integer(args[4])
     coplanar <- as.character(args[5])
     astro.type <- as.character(args[6])
     resonance <- as.logical(args[7])
-#    relativity <- as.logical(args[8])
+    relativity <- as.logical(args[8])
     calibrate <- as.logical(args[9])
     priorf <- as.integer(args[10])
 }else{
@@ -60,10 +57,7 @@ if(length(args)>0){
 #    target <- 'Kepler-432'
 #    target <- 'TOI-2537'
 #    target <- 'WD2149+021'
-#    target <- 'GD66'
-#   target <-'HD168442'
-    target <- 'HD128620'
-#    target <- 'HD10700'
+    target <- 'GD66'
 #    target <- 'Pr0211'
 #    target <- "WASP-81"
 #    target <- 'HD87646'
@@ -97,6 +91,7 @@ if(length(args)>0){
 #    target <-'HD28185'
 #    target <-'GJ65A'
 #    target <-'GJ65B'
+#    target <-'GJ680'
 #   target <-'HIP32791'
 #   target <-'HIP89039'
 #   target <-'GD133'
@@ -119,30 +114,25 @@ if(length(args)>0){
 #   target <-'PDS70'
 #   target <-'HD209100'
 #   target <-'HD22049'
-    Niter0 <- 1e3
-    dtype <- 'raw'#data type
-#    dtype <- 'reduced'
-    Ncores <- 4
+#    Niter0 <- 1e4
+    Niter0 <- 1e5
+    Esd <- 1
+    Ncores <- 8
 #    Ncores <- 1
     coplanar <- FALSE
 #    coplanar <- TRUE
-    astro.type <- 'hg123+'
+    astro.type <- 'hg123'
 #    astro.type <- 'hg123'
     resonance <- FALSE
 #   resonance <- TRUE
+#    relativity <- TRUE
+    relativity <- FALSE
 #    calibrate <- TRUE
     calibrate <- FALSE
     priorf <- 0
 #    priorf <- 1
 }
-relativity <- FALSE
-if(dtype=='raw') relativity <- TRUE
-if(target=='HD128620'){
-   Esd <- 1
-}else{
-   Esd <- 0.2
-}
-ruweDR <- 0
+ruweDR <- 3
 ###if ruweDR==2 or 3, we will use ruwe DR2 or DR3 to constrain the orbit
 #ruweDR <- 3
 #jitter <- 'gauss'
@@ -161,8 +151,6 @@ moon <- ''
 #    moon <- 'b1c2'
 #   basis <- 'linear2'##transit basis for Keplerian parameters
 #    photovary <- TRUE
-#rv.type <- 'ZB'
-rv.type <- 'Zm'
 gammaf <- FALSE
 #gammaf <- TRUE
 astro5 <- TRUE
@@ -171,10 +159,8 @@ par.fix <- NULL
 rel.type <- 'rd'#dRA and dDEC
 #if(any(target==c('CPD-632495','TYC3588-11669-1'))) par.fix <- c('per1','e1','omega1','Mo1','Inc1','Omega1')
 if(any(target==c('CPD-632495','TYC3588-11669-1'))) par.fix <- c('per1','e1','omega1','Mo1')
-if(any(target==c('WD1202-232','WD2105-82','PDS70','WD0643-16')) & priorf==0) par.fix <- c('Mstar')#
-#if(any(target==c('HD128620'))) par.fix <- c('per1','K1','e1','omega1','Omega1','Inc1','Mo1','Mstar')
-if(any(target==c('HD128620'))) par.fix <- c('Mstar')
-if(any(target==c('HD10700'))) par.fix <- c('per1','K1','e1','omega1','Omega1','Inc1','Mo1')
+if(any(target==c('WD1202-232','WD2105-82','PDS70','WD0643-16')) & priorf==0) par.fix <- c('Mstar')
+#if(any(target==c('HD259440','HD30219'))) par.fix <- c('per1')
 if(any(target==c('HD30219','HATS-59','CoRoT-20'))) par.fix <- c('per1')
 #astro5 <- FALSE
 rvc.type <- 'barycentric'#companion RV type
@@ -188,7 +174,7 @@ photovary <- FALSE
 Nmax <- 2
 etaH <- etaG <- rep(NA,10)
 bc <- FALSE
-if(any(target==c('TYC3588-11669-1','HD253754','GaiaBH2','UCAC4569-026385','HD150554','HD13507','HD133621','HD239960','HD142','HD10790','HIP35305','GJ9476','CPD-632495','HD201091','WD2105-82','WD1202−232','PDS70','HD259440','GJ65A','GJ65B','HD41004','GJ680','HIP32791','GaiaDR31903530403238236032','WD0643-16','KIC5307780','KIC7691553','KIC9161428','KIC7273033','KIC12400729','KIC9947924','KIC8669092','WD2149+021','HD128620'))) etaH[1] <- etaG[1] <- 0
+if(any(target==c('TYC3588-11669-1','HD253754','GaiaBH2','UCAC4569-026385','HD150554','HD13507','HD133621','HD239960','HD142','HD10790','HIP35305','GJ9476','CPD-632495','HD201091','WD2105-82','WD1202−232','PDS70','HD259440','GJ65A','GJ65B','HD41004','GJ680','HIP32791','GaiaDR31903530403238236032','WD0643-16','KIC5307780','KIC7691553','KIC9161428','KIC7273033','KIC12400729','KIC9947924','KIC8669092','WD2149+021'))) etaH[1] <- etaG[1] <- 0
 if(any(target=='HD41004')){
     dg <- 3.7
     etaG[2] <- (1+10^(0.074*dg))/(10^(0.4*dg)-10^(0.074*dg))
@@ -198,11 +184,8 @@ basis <- 'natural'
 sim <- FALSE
 #Tmin <- 1000#minimum orbital period for Gaia and Hipparcos catalog data to be considered instataneous
 Tmin <- 1e9
-if(dtype=='raw'){
-    barycor <- TRUE
-}else{
-    barycor <- FALSE
-}
+barycor <- TRUE
+#barycor <- FALSE
 Nsim <- 1e4
 tycf <- FALSE
 #binary <- 'HD128621'
@@ -210,7 +193,6 @@ tycf <- FALSE
 binary <- ''
 if(target=='GJ65A') binary <- 'GJ65B'
 if(target=='GJ65B') binary <- 'GJ65A'
-if(target=='HD128620') binary <- 'HD128621'
 #if(target=='HD41004') binary <- 'HD41004B'
 if(is.na(as.numeric(moon))) moon <- ''
 ###out is a list store most important variables for fitting and output
@@ -257,12 +239,12 @@ if(Niter0<=1e4){
 #star.except <- c('GJ551','GJ699')
 star.except <- c('GJ551')
 offset <- TRUE
-if(any(target==star.except) | dtype=='raw') offset <- FALSE
+if(any(target==star.except)) offset <- FALSE
 #save.memory <- FALSE
 save.memory <- TRUE
 ind.transit <- 0#'auto'
 #ind.transit <- 0
-cat('target:',target,';Nmax=',Nmax,';Niter=',Niter0,';Ncores=',Ncores,';ofac=',ofac,';Esd=',Esd,';rv.type=',rv.type,'priorf=',priorf,'\n')
+cat('target:',target,';Nmax=',Nmax,';Niter=',Niter0,';Ncores=',Ncores,';ofac=',ofac,';Esd=',Esd,';basis=',basis,'priorf=',priorf,'\n')
 
 t00 <- proc.time()
 cat('start time:',t00,'\n')
@@ -271,7 +253,7 @@ Niter <- Niter0
 ##output data structure as a list
 out$relativity <- relativity
 ##register cores
-#if(Ncores>0) {registerDoMC(Ncores)} else {registerDoMC()}
+if(Ncores>0) {registerDoMC(Ncores)} else {registerDoMC()}
 #trace(parallel:::sendMaster, at = 3L, tracer = quote({ str(list(what = what)) }))
 
 ###derive moon parameters
@@ -313,21 +295,16 @@ source('load_data.R')
 ###calibrate astrometric data
 source('astro_calibration.R')
 ##barycentric correction & best noise model
+cat('\nStep 3: PEXO-based barycentric correction\n')
 if(barycor | length(out$tiall)>0){
-    cat('\nStep 3: PEXO-based barycentric correction!\n')
 #if(barycor){
     cat('Barycentric correction using corrected astrometry!')
     source('barycor.R')
-}else{
-    cat('\nStep 3 skipped: NO PEXO-based barycentric correction!\n')
 }
 
 cat('\nStep 4: Noise model comparison\n')
 if(length(out$ins.rv)>0){
-    for(i in out$ins.rv){
-        out[[i]]$noise$nqp <- rep(0,3)
-    }
-    ##    source('model_selection.R')
+    source('model_selection.R')
 }else{
     nqp <- rep(0,3)
 }
@@ -338,6 +315,44 @@ source('dram.R')
 ##analysis of the MCMC results
 cat('\nStep 6: Analysis of MCMC results\n')
 source('analysis_mcmc.R')
+
+###simulation
+sim <- TRUE
+ts <- c(tmin,tmax,out$tiall[,1])
+if(length(out$astrometry)>0){
+    ts <- c(ts,out$astrometry[,'ref_epoch'])
+}
+if(length(out$data.ref)>0){
+    ts <- c(ts,out$data.ref[,1])
+}
+if(length(out$data.epoch)>0){
+    for(i in out$ins.epoch){
+        ts <- c(ts,out$data.epoch[[i]][,"BJD"])
+    }
+}
+if(any(names(out)=='rel')){
+    tt <- c()
+    for(n1 in names(out$rel)){
+        for(n2 in names(out$rel[[n1]])){
+            tt <- c(tt,out$rel[[n1]][[n2]][['BJD']])
+        }
+    }
+    ts <- c(ts,tt)
+}
+if((max(ts)-min(ts))<max(Popt)){
+    dT <- max(Popt)-(max(ts)-min(ts))
+    ts <- c(ts,min(ts)-dT)
+}
+if(any(names(out)=='gost')) ts <- c(ts,out$gost[,'BJD'])
+tsim <- seq(min(ts),max(ts),length.out=Nsim)
+#tsim <- trv.all
+if(barycor){
+    if(!is.null(out$tiall)){
+        source('barycor.R')
+    }else{
+        source('barycor_hipgaia.R')
+    }
+}
 
 mc <- out$mcmc.opt[[paste0('sig',Nsig)]]
 ##save in case of later errors
@@ -359,16 +374,41 @@ if(FALSE){
     source('MP_WP.R')
 }
 
-###simulation
-cat('\nStep 8: generate simulation quantities\n')
-source('gen_sim.R')
-
 ##calculate MP and WP
-cat('\nStep 9: Save data\n')
+cat('\nStep 8: Save data\n')
 source('save_output.R')
 
+###add plxs
+mc <- out$mcmc.opt[[paste0('sig',Nsig)]]
+if(any(colnames(mc)=='dplx')){
+    plx.opt <- out$astrometry[out$iref,'parallax']-par.opt['dplx']
+    plxs <- out$astrometry[out$iref,'parallax']-mc[,'dplx']
+}else{
+    plx.opt <- out$astrometry[out$iref,'parallax']
+    plxs <- rnorm(nrow(mc),plx.opt,out$astrometry[out$iref,'parallax_error'])
+}
+if(target=='UCAC4569-026385'){
+    mstar <- pmfun.spec(plx.opt)
+    emstar1 <- pemfun.spec(plx.opt)#intrinsic uncertainty of the model
+    emstar2 <- sd(pemfun.spec(plxs))#uncertainty due to MCMC
+    emstar <- sqrt(emstar1^2+emstar2^2)
+    mstars <- rnorm(2*nrow(mc),mstar,emstar)
+    mstars <- mstars[mstars>0][1:nrow(mc)]
+}else{
+    if(any(names(par.opt)=='Mstar')){
+        mstar <- par.opt['Mstar']
+        emstar <- sd(mc[,'Mstar'])
+        mstars <- mc[,'Mstar']
+    }else{
+        mstar <- out$Mstar
+        emstar <- out$eMstar
+        mstars <- rnorm(2*nrow(mc),mstar,emstar)
+	mstars <- mstars[mstars>0][1:nrow(mc)]
+    }
+}
+
 ##plot
-cat('\nStep 10: plot results\n')
+cat('\nStep 9: plot results\n')
 source('generate_figures.R')
 
 t11 <- proc.time()
