@@ -1,4 +1,17 @@
 ###This routine is used to conduct adaptive MCMCs to draw posteriors of models for parameter inference
+
+###Helper to lazily load expensive dependencies inside each worker only once
+prepare_parallel_worker <- function(){
+    if(!exists('.dram_worker_ready', envir = .GlobalEnv, inherits = FALSE) ||
+       !isTRUE(get('.dram_worker_ready', envir = .GlobalEnv))){
+        source('mcmc_func.R')
+        assign('.dram_worker_ready', TRUE, envir = .GlobalEnv)
+    }
+}
+
+###Make sure the current (master) session also has the dependencies ready
+prepare_parallel_worker()
+
 nii <- FALSE
 Pmin0 <- Pmin
 Pmax0 <- Pmax
@@ -17,10 +30,19 @@ data.astrometry0 <- out$astrometry
 for(np in Nmin:Nmax){
 ###Parallel signal identification and constraints
     if(!nii){
-        mcmc <- foreach(ncore=1:Ncores,.errorhandling = 'pass') %dopar% {
+        fe <- foreach(ncore=1:Ncores,.errorhandling = 'pass',.inorder = FALSE,
+                      .export = c('prepare_parallel_worker'))
+        backend <- foreach::getDoParName()
+        if(backend %in% c('doParallel', 'doParallelSNOW', 'doSNOW')){
+            fe <- fe$.options.snow(list(preschedule = FALSE))
+        }else if(backend %in% c('doParallelMC', 'doMC')){
+            fe <- fe$.options.multicore(list(preschedule = FALSE))
+        }
+        mcmc <- fe %dopar% {
+#        mcmc <- foreach(ncore=1:Ncores,.errorhandling = 'pass') %dopar% {
 #        mcmc <- list()
 #        for(ncore in 1){
-            source('mcmc_func.R',local=TRUE)
+            prepare_parallel_worker()
             replacePar <- FALSE
             if(np>0){
                 if(np>Ntr0){
