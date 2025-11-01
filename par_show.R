@@ -1,0 +1,18 @@
+fin <- commandArgs(trailingOnly=TRUE)
+tab <- read.table(fin,header=TRUE)
+for(j in 1:2){
+   pattern0 <- paste0(j,'.opt')
+   pattern1 <- paste0(j,'.lower')
+   pattern2 <- paste0(j,'.upper')
+   x0 <- as.numeric(tab[,grep(pattern0,colnames(tab))])
+   x1 <- as.numeric(tab[,grep(pattern1,colnames(tab))])
+   x2 <- as.numeric(tab[,grep(pattern2,colnames(tab))])
+   tmp <- cbind(x0,x1,x2)
+   cn <- colnames(tab)
+   rownames(tmp) <- gsub('\\..+','',cn[grep(pattern1,cn)])
+   colnames(tmp) <- c('map','minus','plus')
+#   fout <- paste0('HD182488_parshow',j,'.txt')
+    fout <- gsub('\\.txt',paste0('_v',j,'\\.txt'),fin)
+   cat(fout,'\n')
+   write.table(tmp,file=fout,quote=FALSE)
+}
