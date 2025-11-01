@@ -1657,7 +1657,7 @@ astrometry.kepler <- function(pars.kep,tt=NULL,out1=out,bases=rep('natural',10),
             }
 ##reflex motion contribution to offsets
             tmp$epoch[[i]] <- astrometry.epoch(pars.kep,out1=out1,tt=tt,bases=bases,band=band,comp=out1$comp.epoch[jj])$epoch
-#            save(list=ls(all=TRUE),file='test0.Robj')
+
 ####calculate the dra and ddec relative to the Gaia DR3 reference epoch
             if(!grepl('hip|TYC',i)){
                 if(!sim){
@@ -1853,11 +1853,11 @@ RV.kepler <- function(pars.kep,tt=NULL,out1=out,prior.kep=prior.type,injection=F
 #        if(out1$Nrv>0){
         if(length(tt)>0){
             if(dtype=='raw' & out1$Nrv>0){
-#                save(list=ls(all=TRUE),file='test0.Robj')
-                tt1 <- proc.time()
-                for(jj in 1:100) tmp <- RV.relativity(pars.kep,out1=out1,t=tauT,indP=indP,indC=indC,Mstar=Mstar,Mps=Mps,as=as,pp=pp,sim.kep=sim.kep)
-                tt2 <- proc.time()
-                cat('dur=',(tt2-tt1)[3],'s\n')
+#                t1 <- proc.time()
+#                for(jj in 1)
+                tmp <- RV.relativity(pars.kep,out1=out1,t=tauT,indP=indP,indC=indC,Mstar=Mstar,Mps=Mps,as=as,pp=pp,sim.kep=sim.kep)
+#                t2 <- proc.time()
+#                cat('dur=',(t2-t1)[3],'s\n')
                 if(nepoch>0){
                     indP <- 1:length(tt)
                     for(kk in 1:Np.kep){
@@ -1876,7 +1876,6 @@ RV.kepler <- function(pars.kep,tt=NULL,out1=out,prior.kep=prior.type,injection=F
 #                drvT <- -tmp$ZTw*CMPS#-out1$rvs
                 drvkep <- tmp$rvkep
                 drvbary <- tmp$ZlocalT*CMPS
-#           save(list=ls(all=TRUE),file='test0.Robj')
                 if(rv.type=='Zm'){
                     drvT <- tmp$Zm*CMPS
                 }else{
@@ -1886,7 +1885,6 @@ RV.kepler <- function(pars.kep,tt=NULL,out1=out,prior.kep=prior.type,injection=F
                         drvT[inds] <- drvT[inds]-tmp$ZB[inds]*out1[[ins]]$RV[,2]+drvkep[inds]+tmp$rvsys[inds]
                     }
                 }
-#                cat('sd(rv.data-drvT)=',sd(out1$PFS$data[,2]-drvT[out$ind.all$rv$PFS]),'\n')
                 tauT <- tmp$tauT
             }else if(out1$Nrv>0){
                 for(h in 1:Np.kep){
